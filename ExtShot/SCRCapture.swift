@@ -12,11 +12,16 @@ class SCRCapture: NSObject {
     private var rect: NSRect?
     private var config: SCStreamConfiguration?
     private var mainScreen: NSScreen?
+    private var isAuthorized = false
 
     func capture(_ rect: NSRect) async throws -> NSImage {
         logger.info("Starting capture for rect: \(rect.origin.x),\(rect.origin.y) \(rect.width)x\(rect.height)")
         
         // 获取屏幕内容
+        if !isAuthorized {
+            await requestScreenCaptureAccess()
+        }
+        
         let content = try await SCShareableContent.current
         guard let display = content.displays.first else {
             logger.error("未找到显示器")
@@ -62,6 +67,50 @@ class SCRCapture: NSObject {
                         NSLocalizedDescriptionKey: "Screenshot capture timeout"
                     ]))
                 }
+            }
+        }
+    }
+    
+    private func requestScreenCaptureAccess() async {
+        // 检查是否有屏幕录制权限
+        do {
+            _ = try await SCShareableContent.current
+            logger.info("已获得屏幕录制权限")
+            isAuthorized = true
+        } catch {
+            logger.warning("缺少屏幕录制权限，尝试重置权限缓存")
+            
+            // 重置权限缓存
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            process.arguments = ["reset", "ScreenCapture", "com.extshot.app"]
+            
+            do {
+                try process.run()
+                process.waitUntilExit()
+                logger.info("权限缓存重置完成")
+            } catch {
+                logger.error("重置权限缓存失败: \(error.localizedDescription)")
+            }
+            
+            // 请求权限
+            logger.info("开始请求屏幕录制权限")
+            
+            // 在主线程请求权限
+            DispatchQueue.main.async {
+                CGRequestScreenCaptureAccess()
+            }
+            
+            // 等待一小段时间让用户操作
+            try? await Task.sleep(nanoseconds: 1_000_000_000)  // 等待1秒
+            
+            // 再次检查权限
+            do {
+                _ = try await SCShareableContent.current
+                isAuthorized = true
+                logger.info("用户授予了屏幕录制权限")
+            } catch {
+                logger.warning("用户拒绝了屏幕录制权限")
             }
         }
     }
