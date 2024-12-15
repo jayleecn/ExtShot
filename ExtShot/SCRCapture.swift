@@ -142,9 +142,47 @@ extension SCRCapture: SCStreamOutput {
                 return
             }
             
-            // 创建最终的 NSImage
-            let nsImage = NSImage(cgImage: cgImage, size: rect.size)
-            continuation.resume(returning: nsImage)
+            // 如果是大图(1280x800)，需要缩放处理
+            if rect.width == 1280 && rect.height == 800 {
+                // 创建缩放后的尺寸
+                let targetSize = CGSize(width: 1280, height: 800)
+                
+                // 创建位图上下文
+                let bitmapRep = NSBitmapImageRep(
+                    bitmapDataPlanes: nil,
+                    pixelsWide: Int(targetSize.width),
+                    pixelsHigh: Int(targetSize.height),
+                    bitsPerSample: 8,
+                    samplesPerPixel: 4,
+                    hasAlpha: true,
+                    isPlanar: false,
+                    colorSpaceName: .deviceRGB,
+                    bytesPerRow: 0,
+                    bitsPerPixel: 0
+                )
+                
+                // 设置图形上下文
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmapRep!)
+                
+                // 绘制缩放后的图像
+                let nsImage = NSImage(cgImage: cgImage, size: rect.size)
+                nsImage.draw(in: NSRect(origin: .zero, size: targetSize))
+                
+                // 恢复图形上下文
+                NSGraphicsContext.restoreGraphicsState()
+                
+                // 创建新的图像
+                let resizedImage = NSImage(size: targetSize)
+                resizedImage.addRepresentation(bitmapRep!)
+                
+                // 保存缩放后的图像
+                continuation.resume(returning: resizedImage)
+            } else {
+                // 其他尺寸直接保存
+                let nsImage = NSImage(cgImage: cgImage, size: rect.size)
+                continuation.resume(returning: nsImage)
+            }
         }
     }
 }
