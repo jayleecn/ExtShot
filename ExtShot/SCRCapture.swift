@@ -124,12 +124,12 @@ extension SCRCapture: SCStreamOutput {
                 缩放因子: \(scaleFactor)
             """)
             
-            // 3. 应用缩放因子
+            // 3. 应用缩放因子并取整
             let cropRect = CGRect(
-                x: globalX * scaleFactor,
-                y: globalY * scaleFactor,
-                width: rect.width * scaleFactor,
-                height: rect.height * scaleFactor
+                x: floor(globalX * scaleFactor),
+                y: floor(globalY * scaleFactor),
+                width: floor(rect.width * scaleFactor),
+                height: floor(rect.height * scaleFactor)
             )
             
             // 裁剪图像
