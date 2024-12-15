@@ -10,7 +10,6 @@ class SCRCapture: NSObject {
     private var latestFrame: CGImage?
     private var continuation: CheckedContinuation<NSImage, Error>?
     private var rect: NSRect?
-    private var config: SCStreamConfiguration?
     private var mainScreen: NSScreen?
     private var isAuthorized = false
 
@@ -37,21 +36,19 @@ class SCRCapture: NSObject {
         mainScreen = NSScreen.main ?? NSScreen.screens[0]
         let scaleFactor = mainScreen?.backingScaleFactor ?? 1.0
         
-        config = SCStreamConfiguration()
-        config?.width = Int(CGFloat(display.width) * scaleFactor)
-        config?.height = Int(CGFloat(display.height) * scaleFactor)
-        config?.showsCursor = false
-        config?.pixelFormat = kCVPixelFormatType_32BGRA
-        config?.queueDepth = 1
-        config?.minimumFrameInterval = CMTime(value: 1, timescale: 1)
-        config?.scalesToFit = false
+        let config = SCStreamConfiguration()
+        config.width = Int(CGFloat(display.width) * scaleFactor)
+        config.height = Int(CGFloat(display.height) * scaleFactor)
+        config.showsCursor = false
+        config.pixelFormat = kCVPixelFormatType_32BGRA
+        config.queueDepth = 1
+        config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
+        config.scalesToFit = false
         
         // 创建并启动流
-        if let config = config {
-            stream = SCStream(filter: filter, configuration: config, delegate: self)
-            try stream?.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)
-            try await stream?.startCapture()
-        }
+        stream = SCStream(filter: filter, configuration: config, delegate: self)
+        try stream?.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)
+        try await stream?.startCapture()
         
         self.rect = rect
         
@@ -134,7 +131,6 @@ extension SCRCapture: SCStreamOutput {
             guard let continuation = continuation,
                   let imageBuffer = sampleBuffer.imageBuffer,
                   let rect = rect,
-                  let config = config,
                   let mainScreen = mainScreen else {
                 return
             }

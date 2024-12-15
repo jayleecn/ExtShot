@@ -130,22 +130,41 @@ class ScreenshotManager: NSObject {
     }
     
     private func save(image: NSImage) async {
-        let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .medium)
-            .replacingOccurrences(of: ":", with: "-")
-            .replacingOccurrences(of: " ", with: "_")
-        
-        let fileURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ExtShot_\(timestamp).png")
+        let fileURL = generateScreenshotPath()
         
         if let tiffData = image.tiffRepresentation,
            let bitmapImage = NSBitmapImageRep(data: tiffData),
            let pngData = bitmapImage.representation(using: .png, properties: [:]) {
             do {
                 try pngData.write(to: fileURL)
+                print("Screenshot saved to: \(fileURL.path)")
+                
+                // 播放截图音效
+                NSSound(named: "Pop")?.play()
             } catch {
                 print("Error saving screenshot: \(error)")
             }
         }
+    }
+    
+    public func generateScreenshotPath() -> URL {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
+        let timestamp = dateFormatter.string(from: Date())
+        var baseFilename = "ExtShot_\(timestamp)"
+        
+        let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        var fileURL = downloadsURL.appendingPathComponent(baseFilename).appendingPathExtension("png")
+        
+        // 如果文件已存在，添加序号
+        var counter = 1
+        while FileManager.default.fileExists(atPath: fileURL.path) {
+            baseFilename = "ExtShot_\(timestamp)_\(counter)"
+            fileURL = downloadsURL.appendingPathComponent(baseFilename).appendingPathExtension("png")
+            counter += 1
+        }
+        
+        return fileURL
     }
 }
 
@@ -166,12 +185,7 @@ extension ScreenshotManager: SCStreamOutput {
                let bitmapImage = NSBitmapImageRep(data: tiffData),
                let pngData = bitmapImage.representation(using: .png, properties: [:]) {
                 
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-                let timestamp = dateFormatter.string(from: Date())
-                
-                let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
-                let fileURL = downloadsURL.appendingPathComponent("ExtShot_\(timestamp).png")
+                let fileURL = generateScreenshotPath()
                 
                 do {
                     try pngData.write(to: fileURL)
@@ -271,12 +285,7 @@ private class CaptureDelegate: NSObject, SCStreamOutput {
                     throw NSError(domain: "com.extshot.app", code: -3, userInfo: [NSLocalizedDescriptionKey: "Failed to create PNG data"])
                 }
                 
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-                let timestamp = dateFormatter.string(from: Date())
-                
-                let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
-                let fileURL = downloadsURL.appendingPathComponent("ExtShot_\(timestamp).png")
+                let fileURL = generateScreenshotPath()
                 
                 logger.info("保存文件到: \(fileURL.path, privacy: .public)")
                 try pngData.write(to: fileURL)
@@ -296,6 +305,26 @@ private class CaptureDelegate: NSObject, SCStreamOutput {
     
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
         continuation.resume(throwing: error)
+    }
+    
+    private func generateScreenshotPath() -> URL {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
+        let timestamp = dateFormatter.string(from: Date())
+        var baseFilename = "ExtShot_\(timestamp)"
+        
+        let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        var fileURL = downloadsURL.appendingPathComponent(baseFilename).appendingPathExtension("png")
+        
+        // 如果文件已存在，添加序号
+        var counter = 1
+        while FileManager.default.fileExists(atPath: fileURL.path) {
+            baseFilename = "ExtShot_\(timestamp)_\(counter)"
+            fileURL = downloadsURL.appendingPathComponent(baseFilename).appendingPathExtension("png")
+            counter += 1
+        }
+        
+        return fileURL
     }
 }
 

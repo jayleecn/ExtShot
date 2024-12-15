@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6922BCD72D0EE2D7003E8013 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6922BCD62D0EE2D7003E8013 /* SwiftUI.framework */; };
+		6922BCD92D0EE2E0003E8013 /* ScreenCaptureKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6922BCD82D0EE2E0003E8013 /* ScreenCaptureKit.framework */; };
+		6922BCDB2D0EE2E9003E8013 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6922BCDA2D0EE2E9003E8013 /* AppKit.framework */; };
+		6922BCDE2D0EE8B4003E8013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6922BCDD2D0EE8B4003E8013 /* Assets.xcassets */; };
 		69A6C1DB2D0DB4D300A55CB1 /* ScreenCapturePermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69A6C1DA2D0DB4D300A55CB0 /* ScreenCapturePermissionManager.swift */; };
 		69D510AC2D0DC183002263C5 /* HotKeyCallbacks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D510AB2D0DC183002263C5 /* HotKeyCallbacks.swift */; };
 		69D510B22D0DC69A002263C5 /* ScreenshotWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D510B12D0DC69A002263C5 /* ScreenshotWindow.swift */; };
@@ -17,6 +21,11 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		6922BCD62D0EE2D7003E8013 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		6922BCD82D0EE2E0003E8013 /* ScreenCaptureKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenCaptureKit.framework; path = System/Library/Frameworks/ScreenCaptureKit.framework; sourceTree = SDKROOT; };
+		6922BCDA2D0EE2E9003E8013 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		6922BCDC2D0EE3DE003E8013 /* ExtShot.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ExtShot.entitlements; sourceTree = "<group>"; };
+		6922BCDD2D0EE8B4003E8013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		69A6C1DA2D0DB4D300A55CB0 /* ScreenCapturePermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapturePermissionManager.swift; sourceTree = "<group>"; };
 		69D510AB2D0DC183002263C5 /* HotKeyCallbacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKeyCallbacks.swift; sourceTree = "<group>"; };
 		69D510B12D0DC69A002263C5 /* ScreenshotWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotWindow.swift; sourceTree = "<group>"; };
@@ -33,16 +42,30 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6922BCDB2D0EE2E9003E8013 /* AppKit.framework in Frameworks */,
+				6922BCD92D0EE2E0003E8013 /* ScreenCaptureKit.framework in Frameworks */,
+				6922BCD72D0EE2D7003E8013 /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6922BCD52D0EE2D7003E8013 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6922BCDA2D0EE2E9003E8013 /* AppKit.framework */,
+				6922BCD82D0EE2E0003E8013 /* ScreenCaptureKit.framework */,
+				6922BCD62D0EE2D7003E8013 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		8D1A0EF42B2AE1A000000010 = {
 			isa = PBXGroup;
 			children = (
 				8D1A0EFF2B2AE1A000000011 /* ExtShot */,
+				6922BCD52D0EE2D7003E8013 /* Frameworks */,
 				8D1A0EFE2B2AE1A000000012 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -58,6 +81,8 @@
 		8D1A0EFF2B2AE1A000000011 /* ExtShot */ = {
 			isa = PBXGroup;
 			children = (
+				6922BCDD2D0EE8B4003E8013 /* Assets.xcassets */,
+				6922BCDC2D0EE3DE003E8013 /* ExtShot.entitlements */,
 				69D510B32D0DD61B002263C5 /* SCRCapture.swift */,
 				69D510B12D0DC69A002263C5 /* ScreenshotWindow.swift */,
 				69D510AB2D0DC183002263C5 /* HotKeyCallbacks.swift */,
@@ -128,6 +153,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6922BCDE2D0EE8B4003E8013 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,12 +302,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = ExtShot/ExtShot.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = QYCCAHA3A4;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ExtShot/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ExtShot;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -289,7 +321,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.extshot.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -302,12 +334,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = ExtShot/ExtShot.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = QYCCAHA3A4;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ExtShot/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ExtShot;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -315,7 +353,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.extshot.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

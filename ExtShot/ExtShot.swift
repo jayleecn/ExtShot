@@ -205,54 +205,35 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
     private func handleCapturedImage(_ image: NSImage) {
         logger.info("截图完成")
         
-        // 创建文件名
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd-HH-mm-ss"
-        let timestamp = formatter.string(from: Date())
-        var baseFilename = "screenshot-\(Int(1280))x\(Int(800))-\(timestamp)"
-        
-        // 获取下载目录路径
-        if let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first {
-            var fileURL = downloadsURL.appendingPathComponent(baseFilename).appendingPathExtension("png")
-            let fileManager = FileManager.default
-            
-            // 如果文件已存在，添加序号
-            var counter = 1
-            while fileManager.fileExists(atPath: fileURL.path) {
-                baseFilename = "screenshot-\(Int(1280))x\(Int(800))-\(timestamp)-\(counter)"
-                fileURL = downloadsURL.appendingPathComponent(baseFilename).appendingPathExtension("png")
-                counter += 1
-            }
-            
-            // 将图片保存为PNG，使用最高质量
-            if let tiffData = image.tiffRepresentation,
-               let bitmapImage = NSBitmapImageRep(data: tiffData) {
-                let properties: [NSBitmapImageRep.PropertyKey: Any] = [
-                    .compressionFactor: 1.0  // 最高质量
-                ]
-                if let pngData = bitmapImage.representation(using: .png, properties: properties) {
-                    do {
-                        try pngData.write(to: fileURL)
-                        logger.info("截图已保存: \(fileURL.path)")
-                        
-                        // 在访达中显示文件
-                        NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: "")
-                    } catch {
-                        logger.error("保存截图失败: \(error.localizedDescription)")
-                        // 显示错误提示
-                        let alert = NSAlert()
-                        alert.messageText = "保存截图失败"
-                        alert.informativeText = error.localizedDescription
-                        alert.alertStyle = .warning
-                        alert.addButton(withTitle: "确定")
-                        alert.runModal()
-                    }
-                } else {
-                    logger.error("创建PNG数据失败")
+        // 将图片保存为PNG，使用最高质量
+        if let tiffData = image.tiffRepresentation,
+           let bitmapImage = NSBitmapImageRep(data: tiffData) {
+            let properties: [NSBitmapImageRep.PropertyKey: Any] = [
+                .compressionFactor: 1.0  // 最高质量
+            ]
+            if let pngData = bitmapImage.representation(using: .png, properties: properties) {
+                do {
+                    let fileURL = ScreenshotManager.shared.generateScreenshotPath()
+                    try pngData.write(to: fileURL)
+                    logger.info("截图已保存: \(fileURL.path)")
+                    
+                    // 在访达中显示文件
+                    NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: "")
+                } catch {
+                    logger.error("保存截图失败: \(error.localizedDescription)")
+                    // 显示错误提示
+                    let alert = NSAlert()
+                    alert.messageText = "保存截图失败"
+                    alert.informativeText = error.localizedDescription
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "确定")
+                    alert.runModal()
                 }
             } else {
-                logger.error("创建位图表示失败")
+                logger.error("创建PNG数据失败")
             }
+        } else {
+            logger.error("创建位图表示失败")
         }
     }
     
