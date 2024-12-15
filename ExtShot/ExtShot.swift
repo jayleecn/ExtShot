@@ -5,12 +5,14 @@ import os
 @main
 struct ExtShotApp: App {
     // 使用 StateObject 确保 AppDelegate 在整个应用生命周期内存在
-    @StateObject private var appDelegate = AppDelegateObject()
+    @NSApplicationDelegateAdaptor(AppDelegateObject.self) private var appDelegate
     
     var body: some Scene {
-        Settings {
+        WindowGroup {
             EmptyView()
         }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 0, height: 0)
     }
 }
 
@@ -29,25 +31,12 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
     
     override init() {
         super.init()
+        
+        // 设置为代理应用，这样就不会显示 Dock 图标
+        NSApplication.shared.setActivationPolicy(.accessory)
+        
+        // 保持对自身的强引用
         AppDelegateObject.shared = self
-        
-        // 清理可能存在的窗口
-        cleanupExistingWindows()
-        
-        // 注册快捷键
-        registerHotKey(keyCode: UInt32(kVK_ANSI_1), modifiers: UInt32(optionKey | shiftKey), id: UInt32(1)) { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                self.showScreenshotPanel(size: CGSize(width: 1280, height: 800))
-            }
-        }
-        
-        registerHotKey(keyCode: UInt32(kVK_ANSI_2), modifiers: UInt32(optionKey | shiftKey), id: UInt32(2)) { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                self.showScreenshotPanel(size: CGSize(width: 640, height: 400))
-            }
-        }
         
         // 注册截图通知
         NotificationCenter.default.addObserver(
@@ -71,10 +60,47 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
         // 应用启动时清理窗口
         cleanupExistingWindows()
         
+        // 确保在主线程设置状态栏和注册快捷键
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // 注册快捷键
+            self.registerHotKey(keyCode: UInt32(kVK_ANSI_1), modifiers: UInt32(optionKey | shiftKey), id: UInt32(1)) { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.showScreenshotPanel(size: CGSize(width: 1280, height: 800))
+                }
+            }
+            
+            self.registerHotKey(keyCode: UInt32(kVK_ANSI_2), modifiers: UInt32(optionKey | shiftKey), id: UInt32(2)) { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.showScreenshotPanel(size: CGSize(width: 640, height: 400))
+                }
+            }
+            
+            // 设置状态栏
+            self.setupStatusItem()
+            
+            // 请求屏幕录制权限
+            Task {
+                let capture = SCRCapture()
+                _ = await capture.checkScreenCapturePermission()
+            }
+        }
+    }
+    
+    private func setupStatusItem() {
         // 创建状态栏图标
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Take Screenshot")
+            if let image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Take Screenshot") {
+                image.isTemplate = true  // 让系统自动处理明暗模式
+                button.image = image
+            } else {
+                logger.error("Failed to load status bar icon")
+            }
         }
         
         // 创建菜单
@@ -94,13 +120,7 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
         
         statusItem?.menu = menu
         
-        logger.info("开始注册热键")
-        
-        // 在应用启动时请求屏幕录制权限
-        Task {
-            let capture = SCRCapture()
-            _ = await capture.checkScreenCapturePermission()
-        }
+        logger.info("Status bar item setup completed")
     }
     
     private func showScreenshotPanel(size: CGSize) {
@@ -176,7 +196,7 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
         var hotKeyRef: EventHotKeyRef?
         var hotKeyID = EventHotKeyID()
         
-        hotKeyID.signature = OSType(id)
+        hotKeyID.signature = OSType(0x4558_5348) // 'EXSH' in hex
         hotKeyID.id = id
         
         let status = RegisterEventHotKey(
@@ -191,8 +211,9 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
         if status == noErr, let hotKeyRef = hotKeyRef {
             eventHandlers.append(hotKeyRef)
             hotKeyCallbacks.callbacks[id] = callback
+            logger.info("热键注册成功: id=\(id)")
         } else {
-            logger.error("热键注册失败: status=\(status, privacy: .public)")
+            logger.error("热键注册失败: status=\(status)")
         }
     }
     
