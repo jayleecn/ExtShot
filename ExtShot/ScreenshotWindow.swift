@@ -73,11 +73,22 @@ class ScreenshotPanel: NSPanel {
             return
         }
         
-        // 先发送截图通知
+        // 记录原始坐标
+        logger.debug("原始选择框坐标: origin=(\(rect.origin.x), \(rect.origin.y)), size=(\(rect.width), \(rect.height))")
+        
+        // 将视图坐标转换为窗口坐标
+        let windowRect = overlayView.convert(rect, to: nil)
+        logger.debug("转换到窗口坐标: origin=(\(windowRect.origin.x), \(windowRect.origin.y)), size=(\(windowRect.width), \(windowRect.height))")
+        
+        // 将窗口坐标转换为屏幕坐标
+        let screenRect = convertToScreen(windowRect)
+        logger.debug("转换到屏幕坐标: origin=(\(screenRect.origin.x), \(screenRect.origin.y)), size=(\(screenRect.width), \(screenRect.height))")
+        
+        // 发送截图通知
         NotificationCenter.default.post(
             name: .takeScreenshot,
             object: nil,
-            userInfo: ["rect": rect]
+            userInfo: ["rect": screenRect]
         )
         
         // 直接调用 ESC 处理逻辑
