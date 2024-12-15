@@ -8,6 +8,7 @@ extension NSNotification.Name {
 class ScreenshotPanel: NSPanel {
     private let logger = Logger(subsystem: "com.extshot.app", category: "screenshot-panel")
     private var overlayView: OverlayView!
+    private var isReady = false
     var onClose: (() -> Void)?
     
     init(size: CGSize) {
@@ -42,48 +43,63 @@ class ScreenshotPanel: NSPanel {
         }
         
         self.contentView = overlayView
+        
+        // 确保窗口总是能接收键盘事件
+        self.makeKey()
         self.makeFirstResponder(overlayView)
+        self.becomeKey()
+        self.becomeMain()
         
         logger.info("初始化截图面板")
+        
+        // 延迟标记窗口准备就绪
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.isReady = true
+            // 确保窗口保持焦点
+            self?.makeKey()
+            self?.makeFirstResponder(self?.overlayView)
+        }
     }
     
     private func handleScreenshot(_ rect: NSRect) {
         logger.info("处理截图请求")
         
-        // 先发送通知
+        // 如果窗口还没准备好，等待一会儿
+        if !isReady {
+            logger.info("窗口未就绪，等待200ms")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                self?.handleScreenshot(rect)
+            }
+            return
+        }
+        
+        // 先发送截图通知
         NotificationCenter.default.post(
             name: .takeScreenshot,
             object: nil,
             userInfo: ["rect": rect]
         )
         
-        // 确保在主线程关闭面板
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            logger.info("关闭截图面板")
-            self.orderOut(nil)  // 立即隐藏面板
-            self.close()
-        }
+        // 直接调用 ESC 处理逻辑
+        handleEscape()
     }
     
     private func handleEscape() {
         logger.info("处理ESC退出")
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.orderOut(nil)  // 立即隐藏面板
-            self.close()
-        }
+        self.orderOut(nil)  // 立即隐藏面板
+        self.close()
     }
     
     override func close() {
         logger.info("面板close被调用")
-        orderOut(nil)  // 确保面板被隐藏
         super.close()
-        onClose?()
+        self.orderOut(nil)  // 确保窗口被隐藏
+        self.overlayView = nil  // 清理引用
+        onClose?()  // 通知关闭事件
     }
     
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
+    override var canBecomeMain: Bool { true }
 }
 
 class OverlayView: NSView {
@@ -133,31 +149,33 @@ class OverlayView: NSView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         
+        // 检查是否是双击
+        let clickTime = event.timestamp
+        if clickTime - lastClickTime < 0.5 {
+            logger.info("检测到双击事件")
+            isDragging = false
+            dragStart = nil
+            onDoubleClick?(selectionRect)
+            return
+        }
+        lastClickTime = clickTime
+        
+        // 检查是否点击在选择框内
         if NSPointInRect(point, selectionRect) {
             isDragging = true
             dragStart = NSPoint(
                 x: point.x - selectionRect.minX,
                 y: point.y - selectionRect.minY
             )
-            
-            // 检查是否是双击
-            let clickTime = event.timestamp
-            if clickTime - lastClickTime < 0.5 {
-                logger.info("检测到双击事件")
-                isDragging = false
-                onDoubleClick?(selectionRect)
-                return
-            }
-            lastClickTime = clickTime
         }
     }
     
     override func mouseDragged(with event: NSEvent) {
-        guard isDragging else { return }
+        guard isDragging, let start = dragStart else { return }
         
         let point = convert(event.locationInWindow, from: nil)
-        guard let start = dragStart else { return }
         
+        // 计算新位置
         var newOrigin = NSPoint(
             x: point.x - start.x,
             y: point.y - start.y
@@ -167,6 +185,7 @@ class OverlayView: NSView {
         newOrigin.x = max(0, min(newOrigin.x, bounds.width - selectionRect.width))
         newOrigin.y = max(0, min(newOrigin.y, bounds.height - selectionRect.height))
         
+        // 更新选择框位置并重绘
         selectionRect.origin = newOrigin
         needsDisplay = true
     }

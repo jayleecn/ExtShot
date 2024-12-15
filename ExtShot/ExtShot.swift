@@ -81,12 +81,6 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
             
             // 设置状态栏
             self.setupStatusItem()
-            
-            // 请求屏幕录制权限
-            Task {
-                let capture = SCRCapture()
-                _ = await capture.checkScreenCapturePermission()
-            }
         }
     }
     
@@ -130,25 +124,20 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
             return
         }
         
-        logger.info("准备显示新的截图面板")
+        isCapturing = true
         
-        // 清理所有现有窗口
+        // 清理现有窗口
         cleanupExistingWindows()
         
-        // 创建新面板
-        isCapturing = true
-        let panel = ScreenshotPanel(size: size)
-        panel.onClose = { [weak self] in
-            guard let self = self else { return }
-            self.logger.info("面板关闭回调被触发")
-            self.isCapturing = false
-            self.screenshotPanel = nil
+        // 创建新的截图面板
+        screenshotPanel = ScreenshotPanel(size: size)
+        screenshotPanel?.onClose = { [weak self] in
+            self?.isCapturing = false
+            self?.screenshotPanel = nil
         }
         
-        panel.makeKeyAndOrderFront(nil)
-        screenshotPanel = panel
-        
-        logger.info("显示截图面板，预设尺寸: \(size.width)x\(size.height)")
+        // 显示面板
+        screenshotPanel?.orderFront(nil)
     }
     
     @objc private func handleScreenshotNotification(_ notification: Notification) {
@@ -157,28 +146,24 @@ class AppDelegateObject: NSObject, NSApplicationDelegate, ObservableObject {
             return
         }
         
-        logger.info("收到截图通知，准备关闭面板")
+        logger.info("收到截图通知，准备截图")
         
-        // 先关闭面板和重置状态
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            if let panel = self.screenshotPanel {
-                self.logger.info("正在关闭面板")
-                panel.orderOut(nil)
-                panel.close()
-                self.screenshotPanel = nil
-                self.isCapturing = false
-            }
-            
-            // 开始截图
-            Task {
-                do {
-                    let capture = SCRCapture()
-                    let image = try await capture.capture(rect)
-                    self.handleCapturedImage(image)
-                } catch {
-                    self.logger.error("截图失败: \(error.localizedDescription)")
+        // 开始截图
+        Task {
+            do {
+                let capture = SCRCapture()
+                let image = try await capture.capture(rect)
+                self.handleCapturedImage(image)
+                
+                // 截图完成后重置状态
+                DispatchQueue.main.async { [weak self] in
+                    self?.isCapturing = false
+                }
+            } catch {
+                self.logger.error("截图失败: \(error.localizedDescription)")
+                // 发生错误时也要重置状态
+                DispatchQueue.main.async { [weak self] in
+                    self?.isCapturing = false
                 }
             }
         }

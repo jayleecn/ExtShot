@@ -1,66 +1,120 @@
-import Foundation
-import CoreGraphics
-import AppKit
+import Cocoa
+import ScreenCaptureKit
+import CoreImage
 import os
 
-class SCRCapture {
+class SCRCapture: NSObject {
     private let logger = Logger(subsystem: "com.extshot.app", category: "screen-capture")
-    
-    // MARK: - Public Methods
-    func checkScreenCapturePermission() async -> Bool {
-        // 使用 CGWindowListCreateImage 检查权限
-        let testImage = CGWindowListCreateImage(.null, .optionOnScreenOnly, kCGNullWindowID, [])
-        let hasPermission = testImage != nil
-        if hasPermission {
-            logger.info("Screen capture permission granted")
-        } else {
-            logger.error("Screen capture permission check failed")
-        }
-        return hasPermission
-    }
-    
+    private var stream: SCStream?
+    private var latestFrame: CGImage?
+    private var continuation: CheckedContinuation<NSImage, Error>?
+    private var rect: NSRect?
+    private var config: SCStreamConfiguration?
+    private var mainScreen: NSScreen?
+
     func capture(_ rect: NSRect) async throws -> NSImage {
         logger.info("Starting capture for rect: \(rect.origin.x),\(rect.origin.y) \(rect.width)x\(rect.height)")
         
-        // 确保捕获区域在屏幕范围内
-        let mainScreen = NSScreen.main ?? NSScreen.screens[0]
-        let screenFrame = mainScreen.frame
-        let scaleFactor = mainScreen.backingScaleFactor
-        
-        let safeRect = NSRect(
-            x: max(0, min(rect.origin.x, screenFrame.width - rect.width)),
-            y: max(0, min(rect.origin.y, screenFrame.height - rect.height)),
-            width: min(rect.width, screenFrame.width),
-            height: min(rect.height, screenFrame.height)
-        )
-        
-        // 转换坐标系（Cocoa 坐标系 -> Core Graphics 坐标系）
-        let flippedRect = CGRect(
-            x: safeRect.origin.x,
-            y: screenFrame.height - safeRect.origin.y - safeRect.height,
-            width: safeRect.width,
-            height: safeRect.height
-        )
-        
-        // 创建截图
-        guard let cgImage = CGWindowListCreateImage(
-            flippedRect,
-            .optionOnScreenOnly,
-            kCGNullWindowID,
-            [.shouldBeOpaque]
-        ) else {
-            logger.error("Failed to create screenshot")
+        // 获取屏幕内容
+        let content = try await SCShareableContent.current
+        guard let display = content.displays.first else {
+            logger.error("未找到显示器")
             throw NSError(domain: "com.extshot.app", code: -1, userInfo: [
-                NSLocalizedDescriptionKey: "无法创建截图",
-                NSLocalizedFailureReasonErrorKey: "请确保已授予屏幕录制权限"
+                NSLocalizedDescriptionKey: "No display found"
             ])
         }
         
-        // 创建 NSImage
-        let size = NSSize(width: safeRect.width, height: safeRect.height)
-        let nsImage = NSImage(cgImage: cgImage, size: size)
+        // 创建过滤器，包含所有窗口
+        let filter = SCContentFilter(display: display, excludingWindows: [])
         
-        logger.info("Screenshot captured successfully")
-        return nsImage
+        // 创建配置
+        mainScreen = NSScreen.main ?? NSScreen.screens[0]
+        let scaleFactor = mainScreen?.backingScaleFactor ?? 1.0
+        
+        config = SCStreamConfiguration()
+        config?.width = Int(CGFloat(display.width) * scaleFactor)
+        config?.height = Int(CGFloat(display.height) * scaleFactor)
+        config?.showsCursor = false
+        config?.pixelFormat = kCVPixelFormatType_32BGRA
+        config?.queueDepth = 1
+        config?.minimumFrameInterval = CMTime(value: 1, timescale: 1)
+        config?.scalesToFit = false
+        
+        // 创建并启动流
+        if let config = config {
+            stream = SCStream(filter: filter, configuration: config, delegate: self)
+            try stream?.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)
+            try await stream?.startCapture()
+        }
+        
+        self.rect = rect
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            
+            // 5秒后如果还没有收到帧，就超时
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                if let continuation = self?.continuation {
+                    self?.continuation = nil
+                    continuation.resume(throwing: NSError(domain: "com.extshot.app", code: -1, userInfo: [
+                        NSLocalizedDescriptionKey: "Screenshot capture timeout"
+                    ]))
+                }
+            }
+        }
+    }
+}
+
+extension SCRCapture: SCStreamDelegate {
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        logger.error("Stream stopped with error: \(error.localizedDescription)")
+        continuation?.resume(throwing: error)
+        continuation = nil
+    }
+}
+
+extension SCRCapture: SCStreamOutput {
+    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        guard type == .screen,
+              let continuation = continuation,
+              let imageBuffer = sampleBuffer.imageBuffer,
+              let rect = rect,
+              let config = config,
+              let mainScreen = mainScreen else {
+            return
+        }
+        
+        // 停止捕获
+        try? stream.stopCapture()
+        self.continuation = nil
+        
+        // 创建 CIImage
+        let ciImage = CIImage(cvImageBuffer: imageBuffer)
+        let context = CIContext(options: [
+            .useSoftwareRenderer: false,
+            .workingColorSpace: mainScreen.colorSpace?.cgColorSpace as Any,
+            .outputColorSpace: mainScreen.colorSpace?.cgColorSpace as Any
+        ])
+        
+        // 计算裁剪区域
+        let scaleFactor = mainScreen.backingScaleFactor
+        let cropRect = CGRect(x: rect.origin.x * scaleFactor,
+                            y: CGFloat(config.height) - rect.origin.y * scaleFactor - rect.height * scaleFactor,
+                            width: rect.width * scaleFactor,
+                            height: rect.height * scaleFactor)
+        
+        // 裁剪图像
+        let croppedImage = ciImage.cropped(to: cropRect)
+        
+        guard let cgImage = context.createCGImage(croppedImage, from: croppedImage.extent, format: .BGRA8, colorSpace: mainScreen.colorSpace?.cgColorSpace) else {
+            continuation.resume(throwing: NSError(domain: "com.extshot.app", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to create screenshot"
+            ]))
+            return
+        }
+        
+        // 创建最终的 NSImage
+        let nsImage = NSImage(cgImage: cgImage, size: rect.size)
+        continuation.resume(returning: nsImage)
     }
 }
